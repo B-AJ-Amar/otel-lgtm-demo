@@ -38,6 +38,10 @@ opentelemetry-instrument \
 
 ### Usage
 
+Run Containers:
+```bash
+docker-compose up -d
+```
 Install requirements:
 ```bash
 pip install -r requirements.txt
