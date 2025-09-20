@@ -1,7 +1,6 @@
 #!/bin/bash
 # Run all FastAPI microservices in separate terminals
 
-opentelemetry-instrument \
 
 # Start service3
 export OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true

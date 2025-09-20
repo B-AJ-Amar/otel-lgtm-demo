@@ -51,3 +51,7 @@ Run all services:
 ```bash
 ./run.sh
 ```
+
+
+### NOTE !!!
+i dont know why but the `OTEL_EXPORTER_OTLP_ENDPOINT` should use the grpc port `4317` but with `http://` prefix, otherwise it will not work.

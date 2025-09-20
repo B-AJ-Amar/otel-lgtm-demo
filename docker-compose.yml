@@ -4,9 +4,17 @@ services:
   otel-lgtm:
     image: grafana/otel-lgtm
     ports:
-      - 3000:3000
+      - 3001:3000
       - 4318:4318
       - 4317:4317
+  
+    environment:
+      -GF_SMTP_ENABLED: true
+      -GF_SMTP_HOST: smtp.resend.com:465
+      -GF_SMTP_USER: resend
+      -GF_SMTP_PASSWORD: re_NqFKCRAZ_28L7v8AAp5gQKQxoTiLF4cJA
+      -GF_SMTP_FROM_ADDRESS: onboarding@resend.dev
+      -GF_SMTP_FROM_NAME: "Grafana Alerts"
 
   kafka:
     image: apache/kafka:latest
@@ -20,12 +28,148 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  service1:
+    build: .
+    ports:
+      - "8001:8001"
+    depends_on:
+      - service2
+      - kafka
+      - otel-lgtm
+    environment:
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4317
+      - OTEL_SERVICE_NAME=dock-service1
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "cd /app &&
+      opentelemetry-instrument \
+      --metrics_exporter otlp \
+      --traces_exporter otlp \
+      --logs_exporter otlp \
+      --exporter_otlp_endpoint http://otel-lgtm:4317 \
+      --service_name service1 \
+      uvicorn service1.main:app --host 0.0.0.0 --port 8001"
+
+  service2:
+    build: .
+    ports:
+      - "8002:8002"
+    depends_on:
+      - service3
+      - otel-lgtm
+    environment:
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4317
+      - OTEL_SERVICE_NAME=dock-service2
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "cd /app &&
+      opentelemetry-instrument \
+      --metrics_exporter otlp \
+      --traces_exporter otlp \
+      --logs_exporter otlp \
+      --exporter_otlp_endpoint http://otel-lgtm:4317 \
+      --service_name service2 \
+      uvicorn service2.main:app --host 0.0.0.0 --port 8002"
+
+  service3:
+    build: .
+    ports:
+      - "8003:8003"
+    depends_on:
+      - otel-lgtm
+    environment:
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4317
+      - OTEL_SERVICE_NAME=dock-service3
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "cd /app &&
+      opentelemetry-instrument \
+      --metrics_exporter otlp \
+      --traces_exporter otlp \
+      --logs_exporter otlp \
+      --exporter_otlp_endpoint http://otel-lgtm:4317 \
+      --service_name service3 \
+      uvicorn service3.main:app --host 0.0.0.0 --port 8003"
+
+  service4:
+    build: .
+    depends_on:
+      - kafka
+      - otel-lgtm
+    environment:
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4317
+      - OTEL_SERVICE_NAME=dock-service4
+    volumes:
+      - .:/app
+    command: >
+      sh -c "cd /app &&
+      opentelemetry-instrument \
+      --metrics_exporter otlp \
+      --traces_exporter otlp \
+      --logs_exporter otlp \
+      --exporter_otlp_endpoint http://otel-lgtm:4317 \
+      --service_name service4 \
+      python service4/consumer.py"
+
+volumes:
+  kafka_data:
+  service2_db:
+
+# version: '3.8'
+# services:
+
+#   otel-lgtm:
+#     image: grafana/otel-lgtm
+#     ports:
+#       - 3000:3000
+#       - 4318:4318
+#       - 4317:4317
+
+#     environment:
+#       -GF_SMTP_ENABLED: true
+#       -GF_SMTP_HOST: smtp.resend.com:465
+#       -GF_SMTP_USER: resend
+#       -GF_SMTP_PASSWORD: re_NqFKCRAZ_28L7v8AAp5gQKQxoTiLF4cJA
+#       -GF_SMTP_FROM_ADDRESS: onboarding@resend.dev
+#       -GF_SMTP_FROM_NAME: "Grafana Alerts"
+
+#   kafka:
+#     image: apache/kafka:latest
+#     container_name: otel_kafka
+#     restart: unless-stopped
+#     ports:
+#       - 9092:9092
+#       - 9093:9093
+   
+#     environment:
+#       KAFKA_NODE_ID: 1
+#       KAFKA_PROCESS_ROLES: broker,controller
+#       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+#       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+#       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+#       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+#       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+#       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+#       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+#       KAFKA_LOG_DIRS: /var/lib/kafka/data

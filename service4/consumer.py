@@ -2,12 +2,16 @@ import asyncio
 from aiokafka import AIOKafkaConsumer
 import json
 from loguru import logger
+from opentelemetry.instrumentation.aiokafka import AIOKafkaInstrumentor
+
+# activate instrumentation
+AIOKafkaInstrumentor().instrument()
 
 async def consume():
     topic = "service1-output"
     consumer = AIOKafkaConsumer(
         topic,
-        bootstrap_servers=["localhost:9092"],
+        bootstrap_servers=["kafka:9092"],
         auto_offset_reset='earliest',
         enable_auto_commit=True,
         group_id='service4-group',
